@@ -1,0 +1,8 @@
+pandas
+networkx
+scikit-learn
+matplotlib
+japanize_matplotlib
+matplotlib-fontja
+streamlit
+pytest

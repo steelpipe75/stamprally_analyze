@@ -1,0 +1,157 @@
+import streamlit as st
+import pandas as pd
+from src.stamprally_analyze import build_graph, draw_graph
+import datetime
+
+def main():
+    # ページ設定
+    st.set_page_config(
+        page_title="スタンプラリー分析支援アプリ",
+        page_icon="💻",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+
+    st.title("スタンプラリー分析支援アプリ")
+
+    # サイドバーでファイルアップロードと時刻範囲選択UIを常に表示
+    with st.sidebar:
+        st.header("データ入力")
+        uploaded_file = st.file_uploader("CSVファイルを選択してください", type=["csv"])
+
+        time_range = st.slider(
+            "分析対象時刻範囲",
+            value=(datetime.time(0, 0, 0), datetime.time(23, 59, 59)),
+            step=datetime.timedelta(minutes=1)
+        )
+
+    # time_rangeからstartとendの時刻を取得
+    start_time = time_range[0]
+    end_time = time_range[1]
+
+    # ファイルが選択されていない場合はメッセージを表示
+    if uploaded_file is None:
+        st.info("👈 サイドバーからCSVファイルを選択してください")
+        return
+
+    # ファイルが選択された場合の処理
+    # CSVファイルの読み込み
+    df = pd.read_csv(uploaded_file)
+
+    # 必要な列の確認
+    if "user_id" not in df.columns or "point" not in df.columns:
+        st.error("CSVファイルに'user_id'または'point'列が存在しません。")
+        return
+
+    if "timestamp" in df.columns:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    else:
+        st.error("CSVファイルに'timestamp'列が存在しません。")
+        return
+
+    # 時刻のみを取得する関数
+    def get_time_only(dt):
+        return dt.time()
+
+    # 選択された時刻範囲でデータをフィルタリング（日付は無視）
+    filtered_df = df[df["timestamp"].apply(lambda x: start_time <= get_time_only(x) <= end_time)]
+
+    # フィルタ後にデータが空の場合はメッセージ表示して早期終了
+    if filtered_df.empty:
+        st.warning("選択した時刻範囲に該当するデータがありません。別の範囲を選択してください。")
+        st.subheader("利用したデータ")
+        st.write(filtered_df)
+    else:
+        # グラフの構築
+        G, node_counts, point_to_id = build_graph(filtered_df)
+
+        # グラフの描画
+        st.subheader("人流グラフ")
+        graph_data = draw_graph(G, node_counts, point_to_id)
+
+        # 画像の表示
+        st.image(graph_data['image'], width="stretch")
+
+        # データの表示
+        st.subheader("人流データ")
+
+        # 時刻範囲の表示
+        st.write(f"分析対象時刻: {start_time.strftime('%H:%M:%S')} から {end_time.strftime('%H:%M:%S')}")
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("総ユーザー数", filtered_df['user_id'].nunique())
+        with col2:
+            st.metric("総スタンプ数", len(filtered_df))
+        with col3:
+            st.metric("総移動数", G.number_of_edges())
+
+        # ポイントごとの訪問者数
+        st.subheader("ポイントごとの訪問者数")
+        st.dataframe(graph_data['nodes_data'])
+
+        # ポイント間の移動者数
+        st.subheader("ポイント間の移動者数 (行:from. 列:to)")
+        st.dataframe(graph_data['edges_matrix'])
+
+        st.subheader("利用したデータ")
+        st.dataframe(filtered_df)
+
+        # --- ダウンロード機能: フィルタ済データと表示している人流データを1つのCSVにまとめてダウンロード ---
+        def make_combined_csv(filtered_df, nodes_df, edges_df, analysis_time_str, total_users, total_stamps, total_moves):
+            # nodes_df と edges_df は pandas.DataFrame と仮定
+            parts = []
+
+            # --- Analysis summary ---
+            parts.append('# Analysis summary')
+            # 保存しやすいように key,value 形式のCSVを作る
+            summary_df = pd.DataFrame([
+                ["analysis_time", analysis_time_str],
+                ["total_users", total_users],
+                ["total_stamps", total_stamps],
+                ["total_moves", total_moves]
+            ], columns=["metric", "value"])
+            parts.append(summary_df.to_csv(index=False))
+
+            # nodes data セクション
+            parts.append('# Nodes (ポイントごとの訪問者数)')
+            parts.append(nodes_df.to_csv(index=False))
+
+            # edges matrix セクション
+            parts.append('\n# Edges (ポイント間の移動者数 行:from 列:to)')
+            # edges_df をそのままCSV化（indexを含める）
+            parts.append(edges_df.to_csv())
+
+            # 元データ（フィルタ済）セクション
+            parts.append('\n# Filtered raw data (利用したデータ)')
+            parts.append(filtered_df.to_csv(index=False))
+
+            # 結合してバイト列に変換（Excelで開いて文字化けしないようにBOM付きUTF-8にする）
+            csv_text = "\n".join(parts)
+            return csv_text.encode('utf-8-sig')
+
+        try:
+            nodes_df = graph_data.get('nodes_data') if 'graph_data' in locals() else None
+            edges_df = graph_data.get('edges_matrix') if 'graph_data' in locals() else None
+            # 分析サマリ値を計算
+            analysis_time_str = f"{start_time.strftime('%H:%M:%S')} から {end_time.strftime('%H:%M:%S')}"
+            total_users = int(filtered_df['user_id'].nunique())
+            total_stamps = int(len(filtered_df))
+            total_moves = int(G.number_of_edges())
+
+            if nodes_df is not None and edges_df is not None:
+                csv_bytes = make_combined_csv(filtered_df, nodes_df, edges_df, analysis_time_str, total_users, total_stamps, total_moves)
+                st.download_button(
+                    label="CSVをダウンロード（人流データ＋利用データ）",
+                    data=csv_bytes,
+                    file_name="stamprally_combined.csv",
+                    mime="text/csv"
+                )
+            else:
+                # 万が一 graph_data が無い場合はダウンロードを出さない
+                st.info("ダウンロード可能な人流データがまだ生成されていません。")
+        except Exception as e:
+            st.error(f"ダウンロード用CSV生成中にエラーが発生しました: {e}")
+
+if __name__ == "__main__":
+    main()
