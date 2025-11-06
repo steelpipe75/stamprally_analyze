@@ -1,0 +1,2 @@
+# stamprally_analyze
+スタンプラリーの人流分析アプリをStreamlitを使って作成
