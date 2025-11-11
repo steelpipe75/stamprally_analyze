@@ -19,6 +19,18 @@ def main():
         st.header("データ入力")
         uploaded_file = st.file_uploader("CSVファイルを選択してください", type=["csv"])
 
+        # Check if a new file has been uploaded or the file has been cleared
+        if 'last_uploaded_file_name' not in st.session_state:
+            st.session_state.last_uploaded_file_name = None
+
+        if uploaded_file is not None and st.session_state.last_uploaded_file_name != uploaded_file.name:
+            st.session_state.pos = None
+            st.session_state.last_uploaded_file_name = uploaded_file.name
+        elif uploaded_file is None and st.session_state.last_uploaded_file_name is not None:
+            # File was cleared
+            st.session_state.pos = None
+            st.session_state.last_uploaded_file_name = None
+
         time_range = st.slider(
             "分析対象時刻範囲",
             value=(datetime.time(0, 0, 0), datetime.time(23, 59, 59)),
@@ -28,6 +40,10 @@ def main():
     # time_rangeからstartとendの時刻を取得
     start_time = time_range[0]
     end_time = time_range[1]
+
+    # レイアウトの初期化と再計算ボタン
+    if 'pos' not in st.session_state:
+        st.session_state.pos = None
 
     # ファイルが選択されていない場合はメッセージを表示
     if uploaded_file is None:
@@ -61,16 +77,67 @@ def main():
         st.warning("選択した時刻範囲に該当するデータがありません。別の範囲を選択してください。")
         st.subheader("利用したデータ")
         st.write(filtered_df)
+        st.session_state.pos = None
     else:
         # グラフの構築
         G, node_counts, point_to_id = build_graph(filtered_df)
 
         # グラフの描画
         st.subheader("人流グラフ")
-        graph_data = draw_graph(G, node_counts, point_to_id)
+
+        # 座標編集ウィジェットからの更新を st.session_state.pos に反映
+        if st.session_state.get('pos'):
+            for node_id in st.session_state.pos.keys():
+                widget_key_x = f"pos_x_{node_id}"
+                widget_key_y = f"pos_y_{node_id}"
+                if widget_key_x in st.session_state and widget_key_y in st.session_state:
+                    st.session_state.pos[node_id] = (
+                        st.session_state[widget_key_x],
+                        st.session_state[widget_key_y]
+                    )
+
+        graph_data = draw_graph(G, node_counts, point_to_id, pos=st.session_state.pos)
+        st.session_state.pos = graph_data['pos']
 
         # 画像の表示
-        st.image(graph_data['image'], width="stretch")
+        st.image(graph_data['image'], use_container_width='auto')
+
+        # ノード座標の編集UI
+        with st.expander("ノード座標の編集"):
+            if st.session_state.get('pos'):
+                id_to_point = {v: k for k, v in point_to_id.items()}
+
+                # ヘッダー
+                col1, col2, col3 = st.columns([2, 3, 3])
+                col1.write("**ポイント**")
+                col2.write("**X座標**")
+                col3.write("**Y座標**")
+
+                for node_id, coords in sorted(st.session_state.pos.items()):
+                    if node_id not in G.nodes:
+                        continue
+                    
+                    node_name = id_to_point.get(node_id, f"ID: {node_id}")
+                    
+                    col1, col2, col3 = st.columns([2, 3, 3])
+                    with col1:
+                        st.write(node_name)
+                    with col2:
+                        st.number_input(
+                            "X",
+                            value=float(coords[0]),
+                            key=f"pos_x_{node_id}",
+                            step=0.01,
+                            label_visibility="collapsed"
+                        )
+                    with col3:
+                        st.number_input(
+                            "Y",
+                            value=float(coords[1]),
+                            key=f"pos_y_{node_id}",
+                            step=0.01,
+                            label_visibility="collapsed"
+                        )
 
         # データの表示
         st.subheader("人流データ")

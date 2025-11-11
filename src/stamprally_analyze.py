@@ -33,7 +33,7 @@ def build_graph(df):
 
     return G, node_counts, point_to_id
 
-def draw_graph(G, node_counts, point_to_id):
+def draw_graph(G, node_counts, point_to_id, pos=None):
     # ノードラベルの準備
     node_labels = {n: f"{n}\n{node_counts.get(n, 0)} 人" for n in G.nodes()}
     def node_number(node):
@@ -49,13 +49,21 @@ def draw_graph(G, node_counts, point_to_id):
 
     # グラフの描画
     plt.figure(figsize=(10, 7))
-    pos = nx.spring_layout(G, seed=42)
+    if pos is None:
+        pos = nx.spring_layout(G, seed=42)
+    max_weight = max(nx.get_edge_attributes(G, "weight").values()) if G.edges() else 1
 
-    nx.draw_networkx_edges(G, pos, edgelist=forward_edges, edge_color="b", width=1, style="solid",
+    max_node_count = max(node_counts.values()) if node_counts else 1
+    node_sizes = [node_counts.get(n, 0) / max_node_count * 2000 + 500 for n in G.nodes()]
+
+    widths_fwd = [G[u][v]["weight"] / max_weight * 5 + 1 for u, v in forward_edges]
+    widths_bwd = [G[u][v]["weight"] / max_weight * 5 + 1 for u, v in backward_edges]
+
+    nx.draw_networkx_edges(G, pos, edgelist=forward_edges, edge_color="b", width=widths_fwd, style="solid",
                              arrowstyle="->", arrowsize=20, connectionstyle="arc3,rad=0.15")
-    nx.draw_networkx_edges(G, pos, edgelist=backward_edges, edge_color="g", width=1, style="dashed",
+    nx.draw_networkx_edges(G, pos, edgelist=backward_edges, edge_color="g", width=widths_bwd, style="dashed",
                              arrowstyle="->", arrowsize=20, connectionstyle="arc3,rad=0.15")
-    nx.draw_networkx_nodes(G, pos, node_color="skyblue")
+    nx.draw_networkx_nodes(G, pos, node_color="skyblue", node_size=node_sizes, alpha=0.7)
     nx.draw_networkx_labels(G, pos, labels=node_labels, font_family="IPAexGothic", font_size=10)
 
     def make_label_dict(G, edges):
@@ -121,5 +129,6 @@ def draw_graph(G, node_counts, point_to_id):
     return {
         'image': buf,
         'nodes_data': nodes_df,
-        'edges_matrix': edges_matrix
+        'edges_matrix': edges_matrix,
+        'pos': pos
     }
