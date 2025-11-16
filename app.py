@@ -14,6 +14,12 @@ def main():
 
     st.title("スタンプラリー分析支援アプリ")
 
+    # 曜日マッピング
+    weekdays_map = {
+        "月曜日": 0, "火曜日": 1, "水曜日": 2, "木曜日": 3,
+        "金曜日": 4, "土曜日": 5, "日曜日": 6
+    }
+
     # サイドバーでファイルアップロードと時刻範囲選択UIを常に表示
     with st.sidebar:
         st.header("データ入力")
@@ -37,9 +43,19 @@ def main():
             step=datetime.timedelta(minutes=1)
         )
 
+        # 曜日選択UI
+        selected_weekdays_names = st.multiselect(
+            "分析対象曜日",
+            options=list(weekdays_map.keys()),
+            default=list(weekdays_map.keys()) # デフォルトは全選択
+        )
+
     # time_rangeからstartとendの時刻を取得
     start_time = time_range[0]
     end_time = time_range[1]
+
+    # 選択された曜日を数値に変換
+    selected_weekdays_numbers = [weekdays_map[day] for day in selected_weekdays_names]
 
     # レイアウトの初期化と再計算ボタン
     if 'pos' not in st.session_state:
@@ -69,8 +85,18 @@ def main():
     def get_time_only(dt):
         return dt.time()
 
+    # 曜日を取得する関数
+    def get_weekday_number(dt):
+        return dt.weekday()
+
     # 選択された時刻範囲でデータをフィルタリング（日付は無視）
-    filtered_df = df[df["timestamp"].apply(lambda x: start_time <= get_time_only(x) <= end_time)]
+    time_filtered_df = df[df["timestamp"].apply(lambda x: start_time <= get_time_only(x) <= end_time)]
+    
+    # 選択された曜日でデータをフィルタリング
+    if selected_weekdays_numbers: # 選択された曜日がある場合のみフィルタリング
+        filtered_df = time_filtered_df[time_filtered_df["timestamp"].apply(lambda x: get_weekday_number(x) in selected_weekdays_numbers)]
+    else:
+        filtered_df = time_filtered_df
 
     # フィルタ後にデータが空の場合はメッセージ表示して早期終了
     if filtered_df.empty:
