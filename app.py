@@ -126,7 +126,7 @@ def main():
         st.session_state.pos = graph_data['pos']
 
         # 画像の表示
-        st.image(graph_data['image'], use_container_width='auto')
+        st.image(graph_data['image'], width='content')
 
         # ノード座標の編集UI
         with st.expander("ノード座標の編集"):
