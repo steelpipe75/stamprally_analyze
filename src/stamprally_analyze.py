@@ -201,7 +201,7 @@ def draw_agraph(G, node_counts, point_to_id):
     config = Config(width=800,
                     height=700,
                     directed=True,
-                    physics=True,
+                    physics={"enabled": True, "solver": "barnesHut", "barnesHut": {"springLength": 200}},
                     nodeHighlightBehavior=True,
                     collapsible=False,
                     node={'labelProperty': 'label'},
