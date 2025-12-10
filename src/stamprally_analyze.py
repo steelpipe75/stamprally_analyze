@@ -134,7 +134,7 @@ def draw_graph(G, node_counts, point_to_id, pos=None):
         'pos': pos
     }
 
-def draw_agraph(G, node_counts):
+def draw_agraph(G, node_counts, point_to_id):
     nodes = []
     if not list(G.nodes()):
         return None
@@ -170,13 +170,32 @@ def draw_agraph(G, node_counts):
                 return 2
             # 1から8の範囲にスケーリング
             return 1 + (weight - min_weight) / (max_weight - min_weight) * 7
+        
+        def node_number(node):
+            return point_to_id.get(node, 0)
 
         for u, v, data in G.edges(data=True):
             weight = data.get('weight', 1)
+            
+            edge_kwargs = {
+                'label': str(weight),
+                'width': scale_edge_width(weight),
+                'smooth': {'enabled': True, 'roundness': 0.15}
+            }
+
+            # 順方向と逆方向でエッジの曲げ方と色を変更
+            if node_number(u) < node_number(v):
+                # 順方向
+                edge_kwargs['smooth']['type'] = 'curvedCW'
+                edge_kwargs['color'] = {'color': 'blue'}
+            else:
+                # 逆方向
+                edge_kwargs['smooth']['type'] = 'curvedCCW'
+                edge_kwargs['color'] = {'color': 'green'}
+            
             edges.append(Edge(source=u,
                             target=v,
-                            label=str(weight),
-                            width=scale_edge_width(weight)
+                            **edge_kwargs
                             ))
 
     config = Config(width=800,

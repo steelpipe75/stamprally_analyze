@@ -165,7 +165,7 @@ def main():
                             label_visibility="collapsed"
                         )
 
-        draw_agraph(G, node_counts)
+        draw_agraph(G, node_counts, point_to_id)
 
         # データの表示
         st.subheader("人流データ")
