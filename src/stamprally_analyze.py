@@ -154,8 +154,7 @@ def draw_agraph(G, node_counts, point_to_id):
         count = node_counts.get(node_name, 0)
         nodes.append(Node(id=node_name,
                         label=f"{node_name}\n{count}人",
-                        size=scale_node_size(count),
-                        # font={{'size': 14}
+                        size=scale_node_size(count)
                         ))
 
     edges = []
@@ -180,16 +179,16 @@ def draw_agraph(G, node_counts, point_to_id):
             edge_kwargs = {
                 'label': str(weight),
                 'width': scale_edge_width(weight),
-                'smooth': {'enabled': True, 'roundness': 0.20, 'type': 'curvedCW'}
+                'smooth': {'enabled': True, 'roundness': 0.20, 'type': 'curvedCW'},
             }
 
             # 順方向と逆方向でエッジの曲げ方と色を変更
             if node_number(u) < node_number(v):
-                # 順方向
-                edge_kwargs['color'] = {'color': 'blue'}
+                # 順方向: 実線
+                edge_kwargs['dashes'] = False
             else:
-                # 逆方向
-                edge_kwargs['color'] = {'color': 'green'}
+                # 逆方向: 点線
+                edge_kwargs['dashes'] = True
             
             edges.append(Edge(source=u,
                             target=v,
@@ -203,7 +202,7 @@ def draw_agraph(G, node_counts, point_to_id):
                     nodeHighlightBehavior=True,
                     collapsible=False,
                     node={'labelProperty': 'label'},
-                    link={'renderLabel': True, 'labelProperty': 'label', 'font': {'size': 12, 'color': 'black'}}
+                    link={'renderLabel': True, 'labelProperty': 'label'}
                    )
 
     return agraph(nodes=nodes, edges=edges, config=config)
