@@ -180,17 +180,15 @@ def draw_agraph(G, node_counts, point_to_id):
             edge_kwargs = {
                 'label': str(weight),
                 'width': scale_edge_width(weight),
-                'smooth': {'enabled': True, 'roundness': 0.15}
+                'smooth': {'enabled': True, 'roundness': 0.20, 'type': 'curvedCW'}
             }
 
             # 順方向と逆方向でエッジの曲げ方と色を変更
             if node_number(u) < node_number(v):
                 # 順方向
-                edge_kwargs['smooth']['type'] = 'curvedCW'
                 edge_kwargs['color'] = {'color': 'blue'}
             else:
                 # 逆方向
-                edge_kwargs['smooth']['type'] = 'curvedCCW'
                 edge_kwargs['color'] = {'color': 'green'}
             
             edges.append(Edge(source=u,
