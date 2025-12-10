@@ -4,6 +4,7 @@ from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import matplotlib_fontja
 from io import BytesIO
+from streamlit_agraph import agraph, Node, Edge, Config
 
 def build_graph(df):
     points = df["point"].unique()
@@ -132,3 +133,60 @@ def draw_graph(G, node_counts, point_to_id, pos=None):
         'edges_matrix': edges_matrix,
         'pos': pos
     }
+
+def draw_agraph(G, node_counts):
+    nodes = []
+    if not list(G.nodes()):
+        return None
+
+    # ノード訪問者数の正規化（サイズに反映）
+    node_counts_values = [node_counts.get(n, 0) for n in G.nodes()]
+    max_node_count = max(node_counts_values) if node_counts_values else 1
+    min_node_count = min(node_counts_values) if node_counts_values else 0
+
+    def scale_node_size(count):
+        if max_node_count == min_node_count:
+            return 20
+        # 15から35の範囲にスケーリング
+        return 15 + (count - min_node_count) / (max_node_count - min_node_count) * 20
+
+    for node_name in G.nodes():
+        count = node_counts.get(node_name, 0)
+        nodes.append(Node(id=node_name,
+                        label=f"{node_name}\n{count}人",
+                        size=scale_node_size(count),
+                        # font={{'size': 14}
+                        ))
+
+    edges = []
+    if list(G.edges()):
+        # エッジの重みの正規化（太さに反映）
+        weights = [data['weight'] for _, _, data in G.edges(data=True)]
+        max_weight = max(weights) if weights else 1
+        min_weight = min(weights) if weights else 1
+
+        def scale_edge_width(weight):
+            if max_weight == min_weight:
+                return 2
+            # 1から8の範囲にスケーリング
+            return 1 + (weight - min_weight) / (max_weight - min_weight) * 7
+
+        for u, v, data in G.edges(data=True):
+            weight = data.get('weight', 1)
+            edges.append(Edge(source=u,
+                            target=v,
+                            label=str(weight),
+                            width=scale_edge_width(weight)
+                            ))
+
+    config = Config(width=800,
+                    height=700,
+                    directed=True,
+                    physics=True,
+                    nodeHighlightBehavior=True,
+                    collapsible=False,
+                    node={'labelProperty': 'label'},
+                    link={'renderLabel': True, 'labelProperty': 'label', 'font': {'size': 12, 'color': 'black'}}
+                   )
+
+    return agraph(nodes=nodes, edges=edges, config=config)

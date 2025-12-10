@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from src.stamprally_analyze import build_graph, draw_graph
+from src.stamprally_analyze import build_graph, draw_graph, draw_agraph
 import datetime
 
 def main():
@@ -164,6 +164,8 @@ def main():
                             step=0.01,
                             label_visibility="collapsed"
                         )
+
+        draw_agraph(G, node_counts)
 
         # データの表示
         st.subheader("人流データ")

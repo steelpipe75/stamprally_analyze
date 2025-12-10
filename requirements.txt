@@ -6,3 +6,4 @@ japanize_matplotlib
 matplotlib-fontja
 streamlit
 pytest
+streamlit-agraph
